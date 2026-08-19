@@ -1194,6 +1194,8 @@ function renderAdminConfig() {
     subTabHTML = renderAdminUsers();
   } else if (configSubTab === 'audit') {
     subTabHTML = renderAdminAudit();
+  } else if (configSubTab === 'firebase') {
+    subTabHTML = renderFirebaseConfigSubTab();
   }
 
   return `
@@ -1202,7 +1204,7 @@ function renderAdminConfig() {
       <div class="config-icon-box">⚙️</div>
       <div>
         <div class="config-title">Configuración del Sistema</div>
-        <div class="config-subtitle">Administración de Máquinas, Plantas, Usuarios y Ajustes</div>
+        <div class="config-subtitle">Administración de Máquinas, Plantas, Usuarios, Base de Datos y Ajustes</div>
       </div>
     </div>
 
@@ -1218,6 +1220,9 @@ function renderAdminConfig() {
       </button>
       <button class="subtab-pill ${configSubTab==='users'?'active':''}" onclick="switchConfigSubTab('users')">
         👥 Usuarios &amp; Roles (${users.length})
+      </button>
+      <button class="subtab-pill ${configSubTab==='firebase'?'active':''}" onclick="switchConfigSubTab('firebase')">
+        🔥 Nube Firebase
       </button>
       <button class="subtab-pill ${configSubTab==='audit'?'active':''}" onclick="switchConfigSubTab('audit')">
         🔍 Bitácora Auditoría
@@ -1631,6 +1636,113 @@ function renderAdminAudit() {
   </div>`;
 }
 
+// ---- Firebase Cloud DB Subtab -------------------------------
+function renderFirebaseConfigSubTab() {
+  const isConnected = window.FirebaseSync && window.FirebaseSync.isConnected();
+  const currentConfig = window.FirebaseSync ? window.FirebaseSync.getConfig() : null;
+  const configJSON = currentConfig ? JSON.stringify(currentConfig, null, 2) : '';
+
+  return `
+  <div class="fade-in">
+    <div class="card" style="padding:22px;margin-bottom:18px;background:rgba(22, 28, 40, 0.85);border:1px solid rgba(255,255,255,0.08)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+            <span>🔥 Sincronización en la Nube con Firebase Cloud Firestore</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
+            Permite que todos los técnicos, supervisores, operadores y pantallas de TV compartan datos en tiempo real entre múltiples dispositivos.
+          </div>
+        </div>
+
+        <div>
+          <span class="badge ${isConnected ? 'badge-closed' : 'badge-open'}" style="font-size:12px;padding:6px 14px">
+            ${isConnected ? '🟢 Conectado en Tiempo Real' : '🟡 Modo Local (Sin credenciales)'}
+          </span>
+        </div>
+      </div>
+
+      <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:var(--text-secondary);line-height:1.6">
+        <strong>📋 ¿Cómo obtener tus credenciales de Firebase?</strong><br>
+        1. Entra a tu proyecto en <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent-blue);font-weight:700;text-decoration:underline">console.firebase.google.com</a>.<br>
+        2. Ve a <strong>Configuración del Proyecto (⚙️)</strong> → Pestaña <strong>General</strong> → Sección <strong>Tus apps (Web &lt;/&gt;)</strong>.<br>
+        3. Copia el objeto <code>firebaseConfig</code> y pégalo a continuación:
+      </div>
+
+      <form id="firebase-config-form" onsubmit="saveFirebaseConfigFromUI(event)">
+        <div class="form-group">
+          <label class="form-label">Configuración Firebase (JSON o campos clave) <span class="required">*</span></label>
+          <textarea id="fb-config-json" class="form-textarea" rows="8" style="font-family:monospace;font-size:12px" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "somac-xxxx.firebaseapp.com",
+  "projectId": "somac-xxxx",
+  "storageBucket": "somac-xxxx.appspot.com",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'>${configJSON}</textarea>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-primary btn-lg">💾 Guardar y Conectar Firebase</button>
+          ${isConnected ? `
+            <button type="button" class="btn btn-ghost btn-lg" onclick="pushAllToFirebaseFromUI()" style="border:1px solid rgba(255,255,255,0.15)">
+              ☁️ Subir datos locales a la Nube
+            </button>
+          ` : ''}
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+function saveFirebaseConfigFromUI(e) {
+  e.preventDefault();
+  const rawText = document.getElementById('fb-config-json')?.value.trim();
+  if (!rawText) {
+    NotifSystem.toast('error', 'Error', 'Por favor ingresa la configuración de Firebase.');
+    return;
+  }
+
+  try {
+    let configObj = null;
+    if (rawText.startsWith('{') && rawText.endsWith('}')) {
+      configObj = JSON.parse(rawText);
+    } else {
+      // Clean javascript object notation if pasted with const firebaseConfig = { ... }
+      const jsonStr = rawText.replace(/^[^{]*{/, '{').replace(/}[^}]*$/, '}').replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+      configObj = JSON.parse(jsonStr);
+    }
+
+    if (!configObj || !configObj.projectId) {
+      NotifSystem.toast('error', 'Configuración Inválida', 'Falta el campo projectId en la configuración.');
+      return;
+    }
+
+    if (window.FirebaseSync) {
+      window.FirebaseSync.saveConfig(configObj);
+      NotifSystem.toast('success', 'Firebase Conectado', `Proyecto ${configObj.projectId} sincronizado.`);
+      setTimeout(() => App.renderSection('admin-config'), 500);
+    }
+  } catch (err) {
+    NotifSystem.toast('error', 'JSON Inválido', 'Asegúrate de pegar el formato JSON correcto con llaves y comillas dobles.');
+  }
+}
+
+async function pushAllToFirebaseFromUI() {
+  if (!window.FirebaseSync || !window.FirebaseSync.isConnected()) {
+    NotifSystem.toast('error', 'No Conectado', 'Conecta Firebase antes de subir los datos.');
+    return;
+  }
+
+  NotifSystem.toast('info', 'Sincronizando', 'Subiendo base de datos a Firestore...');
+  const ok = await window.FirebaseSync.pushAllToCloud();
+  if (ok) {
+    NotifSystem.toast('success', 'Nube Actualizada', 'Todos los datos actuales se guardaron en Firebase.');
+  } else {
+    NotifSystem.toast('error', 'Error', 'Ocurrió un problema al subir a Firestore. Revisa las reglas de seguridad.');
+  }
+}
+
 // Expose globals
 window.renderAdminDashboard = renderAdminDashboard;
 window.renderAdminStats = renderAdminStats;
@@ -1640,6 +1752,9 @@ window.renderAdminPlants = renderAdminPlants;
 window.renderAdminUsers = renderAdminUsers;
 window.renderAdminConfig = renderAdminConfig;
 window.renderAdminAudit = renderAdminAudit;
+window.renderFirebaseConfigSubTab = renderFirebaseConfigSubTab;
+window.saveFirebaseConfigFromUI = saveFirebaseConfigFromUI;
+window.pushAllToFirebaseFromUI = pushAllToFirebaseFromUI;
 window.exportAllReports = exportAllReports;
 window.filterReportsTable = filterReportsTable;
 window.openAvailabilityDrillDownModal = openAvailabilityDrillDownModal;

@@ -21,11 +21,14 @@ const db = {
     try { return JSON.parse(localStorage.getItem(key)) || null; }
     catch { return null; }
   },
-  set(key, val) {
+  set(key, val, fromRemote = false) {
     localStorage.setItem(key, JSON.stringify(val));
     try {
       window.dispatchEvent(new CustomEvent('somac:data-changed', { detail: { key } }));
     } catch (e) {}
+    if (!fromRemote && window.FirebaseSync && window.FirebaseSync.isConnected && window.FirebaseSync.isConnected()) {
+      window.FirebaseSync.saveKey(key, val);
+    }
   },
   update(key, fn) {
     const current = db.get(key);
@@ -49,399 +52,68 @@ function getNextSunday(fromDate = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
-// ---- Seed Data ----------------------------------------------
+// ---- Seed Data (Clean Production Zero-State) -----------------
 function seedDatabase() {
-  const existingUsers = db.get(DB_KEYS.USERS);
-  if (existingUsers && Array.isArray(existingUsers) && existingUsers.length > 0) {
-    // Migration: ensure users have valid plant assignments and updated roles
-    const updatedUsers = existingUsers.map(u => {
-      if (u.role === 'supervisor') u.role = 'sup_mtto';
-      if (!u.plantId) {
-        if (['planeador', 'programador', 'admin'].includes(u.role)) u.plantId = 'ambas';
-        else u.plantId = 'plant-1';
-      }
-      return u;
-    });
-    // Ensure all seed demo users exist
-    const demoUsers = [
-      { id: 'user-op1', username: 'operator', password: 'op123', name: 'Pedro Operador (P1)', role: 'sup_op', plantId: 'plant-1', email: 'op1@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-op2', username: 'operator2', password: 'op123', name: 'Juan Operador (P2)', role: 'sup_op', plantId: 'plant-2', email: 'op2@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-tec1', username: 'tecnico', password: 'tec123', name: 'Carlos Técnico (P1)', role: 'tecnico', plantId: 'plant-1', email: 'tec1@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-tec2', username: 'tecnico2', password: 'tec123', name: 'Miguel Técnico (P2)', role: 'tecnico', plantId: 'plant-2', email: 'tec2@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-sup1', username: 'supervisor', password: 'sup123', name: 'María Supervisora (P1)', role: 'sup_mtto', plantId: 'plant-1', email: 'sup1@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-sup2', username: 'supervisor2', password: 'sup123', name: 'Jorge Supervisor (P2)', role: 'sup_mtto', plantId: 'plant-2', email: 'sup2@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-plan1', username: 'planeador', password: 'plan123', name: 'Laura Planeadora', role: 'planeador', plantId: 'ambas', email: 'planeador@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-prog1', username: 'programador', password: 'prog123', name: 'Ana Programadora', role: 'programador', plantId: 'ambas', email: 'programador@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-adm1', username: 'admin', password: 'admin123', name: 'Administrador SOMAC', role: 'admin', plantId: 'ambas', email: 'admin@danfoss.com', active: true, createdAt: now() },
-      { id: 'user-tv', username: 'tv', password: 'tv', name: 'Pantalla Informativa (TV)', role: 'display', plantId: 'ambas', email: 'tv@danfoss.com', active: true, createdAt: now() }
-    ];
+  const SEED_VERSION = 'v20_clean_prod';
+  const currentSeedVer = (typeof localStorage !== 'undefined') ? localStorage.getItem('mtto_seed_ver') : null;
 
-    demoUsers.forEach(du => {
-      if (!updatedUsers.some(u => u.username === du.username)) {
-        updatedUsers.push(du);
-      }
-    });
-
-    db.set(DB_KEYS.USERS, updatedUsers);
-    return;
-  }
-
-  // Initial Seed Data
-  db.set(DB_KEYS.PLANTS, [
-    { id: 'plant-1', name: 'Planta 1', location: 'Norte', defaultHoursPerDay: 24, defaultHoursPerWeek: 168, active: true },
-    { id: 'plant-2', name: 'Planta 2', location: 'Sur', defaultHoursPerDay: 24, defaultHoursPerWeek: 168, active: true },
-  ]);
-
-  db.set(DB_KEYS.USERS, [
-    { id: 'user-op1', username: 'operator', password: 'op123', name: 'Pedro Operador (P1)', role: 'sup_op', plantId: 'plant-1', email: 'op1@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-op2', username: 'operator2', password: 'op123', name: 'Juan Operador (P2)', role: 'sup_op', plantId: 'plant-2', email: 'op2@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-tec1', username: 'tecnico', password: 'tec123', name: 'Carlos Técnico (P1)', role: 'tecnico', plantId: 'plant-1', email: 'tec1@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-tec2', username: 'tecnico2', password: 'tec123', name: 'Miguel Técnico (P2)', role: 'tecnico', plantId: 'plant-2', email: 'tec2@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-sup1', username: 'supervisor', password: 'sup123', name: 'María Supervisora (P1)', role: 'sup_mtto', plantId: 'plant-1', email: 'sup1@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-sup2', username: 'supervisor2', password: 'sup123', name: 'Jorge Supervisor (P2)', role: 'sup_mtto', plantId: 'plant-2', email: 'sup2@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-plan1', username: 'planeador', password: 'plan123', name: 'Laura Planeadora', role: 'planeador', plantId: 'ambas', email: 'planeador@danfoss.com', active: true, createdAt: now() },
-    { id: 'user-prog1', username: 'programador', password: 'prog123', name: 'Ana Programadora', role: 'programador', plantId: 'ambas', email: 'programador@danfoss.com', active: true, createdAt: now() },
+  // Essential Base Users: Admin & TV
+  const baseUsers = [
     { id: 'user-adm1', username: 'admin', password: 'admin123', name: 'Administrador SOMAC', role: 'admin', plantId: 'ambas', email: 'admin@danfoss.com', active: true, createdAt: now() },
     { id: 'user-tv', username: 'tv', password: 'tv', name: 'Pantalla Informativa (TV)', role: 'display', plantId: 'ambas', email: 'tv@danfoss.com', active: true, createdAt: now() }
-  ]);
-
-  db.set(DB_KEYS.MACHINES, [
-    { id: 'mach-1', name: 'Compresor Atlas C-01', area: 'Área A', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 24, hoursPerWeek: 168, active: true },
-    { id: 'mach-2', name: 'Prensa Hidráulica PH-200', area: 'Área B', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 24, hoursPerWeek: 168, active: true },
-    { id: 'mach-3', name: 'Banda Transportadora BT-05', area: 'Línea 1', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 16, hoursPerWeek: 96, active: true },
-    { id: 'mach-4', name: 'Extrusora EX-3000', area: 'Línea 2', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
-    { id: 'mach-5', name: 'Robot Soldador RS-01', area: 'Celda A', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
-    { id: 'mach-6', name: 'Caldera Industrial CI-02', area: 'Cuarto de Máquinas', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
-  ]);
-
-  db.set(DB_KEYS.CONFIG, {
-    slaMinutes: 60,
-    slaEnabled: true,
-    companyName: 'SOMAC · Danfoss',
-    escalationText: '🚨 ALERTA: Falla en {machine} sigue sin atención después de {minutes} minutos.',
-  });
-
-  const msHour = 3600000;
-  const msDay  = 86400000;
-  const nowMs  = Date.now();
-
-  const seedReports = [
-    // 1. Banda Transportadora BT-05 (Planta 1) -> 77.4% (🔴 Crítica)
-    {
-      id: 'REP-0005',
-      plantId: 'plant-1',
-      plantName: 'Planta 1',
-      machineId: 'mach-3',
-      machineName: 'Banda Transportadora BT-05',
-      area: 'Línea 1',
-      description: 'Atascamiento de rodillo motriz y ruptura de banda transportadora',
-      totalStop: true,
-      status: 'closed',
-      createdBy: 'user-op1',
-      createdByName: 'Pedro Operador (P1)',
-      t0: new Date(nowMs - 36 * msHour).toISOString(),
-      t1: new Date(nowMs - 36 * msHour + 10 * 60000).toISOString(),
-      t2: new Date(nowMs - 36 * msHour + 24 * msHour).toISOString(),
-      t3: new Date(nowMs - 36 * msHour + 25 * msHour).toISOString(),
-      technicianId: 'user-tec1',
-      technicianName: 'Carlos Técnico (P1)',
-      supervisorName: 'María Supervisora (P1)',
-      workDescription: 'Vulcanizado en frío de banda y alineación de chumaceras tensoras',
-      rootCause: 'Rodamiento de chumacera gripado por falta de lubricación automática',
-      materials: 'Kit de vulcanizado Flexco | 2 Chumaceras UCP-208'
-    },
-    {
-      id: 'REP-0009',
-      plantId: 'plant-1',
-      plantName: 'Planta 1',
-      machineId: 'mach-3',
-      machineName: 'Banda Transportadora BT-05',
-      area: 'Línea 1',
-      description: 'Desalineamiento de sensor fotoeléctrico de conteo',
-      totalStop: false,
-      status: 'closed',
-      createdBy: 'user-op1',
-      createdByName: 'Pedro Operador (P1)',
-      t0: new Date(nowMs - 16 * msHour).toISOString(),
-      t1: new Date(nowMs - 16 * msHour + 5 * 60000).toISOString(),
-      t2: new Date(nowMs - 16 * msHour + 14 * msHour).toISOString(),
-      t3: new Date(nowMs - 16 * msHour + 15 * msHour).toISOString(),
-      technicianId: 'user-tec1',
-      technicianName: 'Carlos Técnico (P1)',
-      supervisorName: 'María Supervisora (P1)',
-      workDescription: 'Soportería reforzada y calibración de distancia de detección',
-      rootCause: 'Vibración mecánica aflojó soporte de sensor',
-      materials: '1 Sensor Óptico Sick WT12'
-    },
-
-    // 2. Prensa Hidráulica PH-200 (Planta 1) -> 88.1% (🟡 Alerta)
-    {
-      id: 'REP-0002',
-      plantId: 'plant-1',
-      plantName: 'Planta 1',
-      machineId: 'mach-2',
-      machineName: 'Prensa Hidráulica PH-200',
-      area: 'Área B',
-      description: 'Caída de presión en pistón secundario de frenado',
-      totalStop: true,
-      status: 'closed',
-      createdBy: 'user-op1',
-      createdByName: 'Pedro Operador (P1)',
-      t0: new Date(nowMs - 48 * msHour).toISOString(),
-      t1: new Date(nowMs - 48 * msHour + 10 * 60000).toISOString(),
-      t2: new Date(nowMs - 48 * msHour + 8 * msHour).toISOString(),
-      t3: new Date(nowMs - 48 * msHour + 9 * msHour).toISOString(),
-      technicianId: 'user-tec1',
-      technicianName: 'Carlos Técnico (P1)',
-      supervisorName: 'María Supervisora (P1)',
-      workDescription: 'Ajuste de racor hidráulico y reemplazo de retén de pistón',
-      rootCause: 'Sobrepresión por filtro obstruido en tanque hidráulico',
-      materials: '1 retén Gates H-450 | 20L Aceite VG68'
-    },
-    {
-      id: 'REP-0008',
-      plantId: 'plant-1',
-      plantName: 'Planta 1',
-      machineId: 'mach-2',
-      machineName: 'Prensa Hidráulica PH-200',
-      area: 'Área B',
-      description: 'Paro por falla en servo-válvula proporcional',
-      totalStop: true,
-      status: 'closed',
-      createdBy: 'user-op1',
-      createdByName: 'Pedro Operador (P1)',
-      t0: new Date(nowMs - 22 * msHour).toISOString(),
-      t1: new Date(nowMs - 22 * msHour + 15 * 60000).toISOString(),
-      t2: new Date(nowMs - 22 * msHour + 12 * msHour).toISOString(),
-      t3: new Date(nowMs - 22 * msHour + 13 * msHour).toISOString(),
-      technicianId: 'user-tec1',
-      technicianName: 'Carlos Técnico (P1)',
-      supervisorName: 'María Supervisora (P1)',
-      workDescription: 'Desmontaje de bloque de válvulas y cambio de bobina',
-      rootCause: 'Bobina en corto circuito por picos de tensión',
-      materials: '1 Bobina Proporcional Rexroth 24VDC'
-    },
-
-    // 3. Robot Soldador RS-01 (Planta 2) -> 96.1% (🟢 Operativa)
-    {
-      id: 'REP-0004',
-      plantId: 'plant-2',
-      plantName: 'Planta 2',
-      machineId: 'mach-5',
-      machineName: 'Robot Soldador RS-01',
-      area: 'Celda A',
-      description: 'Descalibración de cero en eje 3 de articulación',
-      totalStop: true,
-      status: 'closed',
-      createdBy: 'user-op2',
-      createdByName: 'Juan Operador (P2)',
-      t0: new Date(nowMs - 30 * msHour).toISOString(),
-      t1: new Date(nowMs - 30 * msHour + 8 * 60000).toISOString(),
-      t2: new Date(nowMs - 30 * msHour + 6.5 * msHour).toISOString(),
-      t3: new Date(nowMs - 30 * msHour + 7 * msHour).toISOString(),
-      technicianId: 'user-tec2',
-      technicianName: 'Miguel Técnico (P2)',
-      supervisorName: 'Jorge Supervisor (P2)',
-      workDescription: 'Recalibración de encoder y prueba de trayectoria cero',
-      rootCause: 'Pérdida de referencia por variación de voltaje en batería de respaldo',
-      materials: 'Ninguno'
-    },
-
-    // 4. Compresor Atlas C-01 (Planta 1) -> 98.2% (🟢 Operativa)
-    {
-      id: 'REP-0006',
-      plantId: 'plant-1',
-      plantName: 'Planta 1',
-      machineId: 'mach-1',
-      machineName: 'Compresor Atlas C-01',
-      area: 'Área A',
-      description: 'Fuga en línea de purga automática de secador',
-      totalStop: false,
-      status: 'closed',
-      createdBy: 'user-op1',
-      createdByName: 'Pedro Operador (P1)',
-      t0: new Date(nowMs - 12 * msHour).toISOString(),
-      t1: new Date(nowMs - 12 * msHour + 10 * 60000).toISOString(),
-      t2: new Date(nowMs - 12 * msHour + 3 * msHour).toISOString(),
-      t3: new Date(nowMs - 12 * msHour + 3.5 * msHour).toISOString(),
-      technicianId: 'user-tec1',
-      technicianName: 'Carlos Técnico (P1)',
-      supervisorName: 'María Supervisora (P1)',
-      workDescription: 'Cambio de válvula de purga temporizada y ajuste de presostato',
-      rootCause: 'Obstrucción por condensado ferroso',
-      materials: '1 pza Válvula Solenoide 1/2"'
-    },
-
-    // 5. Caldera Industrial CI-02 (Planta 2) -> 99.5% (🟢 Operativa)
-    {
-      id: 'REP-0007',
-      plantId: 'plant-2',
-      plantName: 'Planta 2',
-      machineId: 'mach-6',
-      machineName: 'Caldera Industrial CI-02',
-      area: 'Cuarto de Máquinas',
-      description: 'Sensor de nivel de condensado fuera de rango',
-      totalStop: false,
-      status: 'closed',
-      createdBy: 'user-op2',
-      createdByName: 'Juan Operador (P2)',
-      t0: new Date(nowMs - 6 * msHour).toISOString(),
-      t1: new Date(nowMs - 6 * msHour + 15 * 60000).toISOString(),
-      t2: new Date(nowMs - 6 * msHour + 50 * 60000).toISOString(),
-      t3: new Date(nowMs - 6 * msHour + 60 * 60000).toISOString(),
-      technicianId: 'user-tec2',
-      technicianName: 'Miguel Técnico (P2)',
-      supervisorName: 'Jorge Supervisor (P2)',
-      workDescription: 'Purga de columna de nivel y limpieza de electrodos de conductividad',
-      rootCause: 'Incrustación por sales en sonda de nivel',
-      materials: 'Ninguno'
-    }
-
-    // 6. Extrusora EX-3000 (Planta 2) -> 100% (🟢 Operativa - 0h paro)
   ];
 
-  const SEED_VERSION = 'v12_varied_status';
-  const currentSeedVer = (typeof localStorage !== 'undefined') ? localStorage.getItem('mtto_seed_ver') : null;
-  const existingReports = db.get(DB_KEYS.REPORTS);
-
-  if (!existingReports || existingReports.length === 0 || currentSeedVer !== SEED_VERSION) {
-    db.set(DB_KEYS.REPORTS, seedReports);
+  // If migrating to clean production version, clear fake demo reports & demo users
+  if (currentSeedVer !== SEED_VERSION) {
+    db.set(DB_KEYS.USERS, baseUsers);
+    db.set(DB_KEYS.REPORTS, []);
+    db.set(DB_KEYS.PM_TICKETS, []);
+    db.set(DB_KEYS.REQUISITIONS, []);
+    db.set(DB_KEYS.AUDIT_LOG, []);
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('mtto_seed_ver', SEED_VERSION);
     }
   }
 
-  const seedInventory = [
-    {
-      id: 'INV-0001',
-      name: 'Balero Rígido de Bolas',
-      brand: 'SKF',
-      model: '6205-2RS',
-      supplier: 'Rodamientos Industriales SA',
-      costUnit: 280,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 8, 'plant-2': 5 },
-      minQuantity: 3,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0002',
-      name: 'Válvula Solenoide Direccional 24VDC',
-      brand: 'Rexroth',
-      model: '4WE6D6X/EG24N9K4',
-      supplier: 'Hidráulica y Control',
-      costUnit: 3450,
-      plants: ['plant-1'],
-      stockByPlant: { 'plant-1': 3, 'plant-2': 0 },
-      minQuantity: 1,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0003',
-      name: 'Chumacera de Pie 2 Pulgadas',
-      brand: 'Timken',
-      model: 'UCP-208',
-      supplier: 'Transmisiones del Norte',
-      costUnit: 620,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 4, 'plant-2': 3 },
-      minQuantity: 2,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0004',
-      name: 'Sensor Fotoeléctrico Láser Retro-reflectivo',
-      brand: 'Sick',
-      model: 'WT12L-2B550',
-      supplier: 'Automatización y Sensores',
-      costUnit: 1850,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 3, 'plant-2': 2 },
-      minQuantity: 1,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0005',
-      name: 'Banda de Transmisión Trapezoidal',
-      brand: 'Gates',
-      model: 'Hi-Power II B-58',
-      supplier: 'Bandas y Mangueras Danfoss',
-      costUnit: 195,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 12, 'plant-2': 6 },
-      minQuantity: 4,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0006',
-      name: 'Aceite Hidráulico Anti-Desgaste ISO 46 (Cubeta 19L)',
-      brand: 'Mobil',
-      model: 'DTE 25 Ultra',
-      supplier: 'Lubricantes Industriales',
-      costUnit: 1420,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 6, 'plant-2': 4 },
-      minQuantity: 2,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0007',
-      name: 'Sensor de Proximidad Inductivo M12 PNP',
-      brand: 'Omron',
-      model: 'E2B-M12KS04-WP-B1',
-      supplier: 'Electrónica y Control',
-      costUnit: 480,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 7, 'plant-2': 5 },
-      minQuantity: 2,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    },
-    {
-      id: 'INV-0008',
-      name: 'Contactor Trifásico 24VDC 32A',
-      brand: 'Schneider Electric',
-      model: 'TeSys LC1D32BD',
-      supplier: 'Distribuidora Eléctrica',
-      costUnit: 980,
-      plants: ['plant-1', 'plant-2'],
-      stockByPlant: { 'plant-1': 4, 'plant-2': 2 },
-      minQuantity: 2,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-      movementLog: []
-    }
-  ];
-
-  const existingInventory = db.get(DB_KEYS.INVENTORY);
-  if (!existingInventory || !Array.isArray(existingInventory) || existingInventory.length === 0) {
-    db.set(DB_KEYS.INVENTORY, seedInventory);
+  const existingUsers = db.get(DB_KEYS.USERS);
+  if (!existingUsers || existingUsers.length === 0) {
+    db.set(DB_KEYS.USERS, baseUsers);
   }
 
+  // Initial Plants Data
+  if (!db.get(DB_KEYS.PLANTS)) {
+    db.set(DB_KEYS.PLANTS, [
+      { id: 'plant-1', name: 'Planta 1', location: 'Norte', defaultHoursPerDay: 24, defaultHoursPerWeek: 168, active: true },
+      { id: 'plant-2', name: 'Planta 2', location: 'Sur', defaultHoursPerDay: 24, defaultHoursPerWeek: 168, active: true },
+    ]);
+  }
+
+  // Initial Machines Data
+  if (!db.get(DB_KEYS.MACHINES)) {
+    db.set(DB_KEYS.MACHINES, [
+      { id: 'mach-1', name: 'Compresor Atlas C-01', area: 'Área A', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 24, hoursPerWeek: 168, active: true },
+      { id: 'mach-2', name: 'Prensa Hidráulica PH-200', area: 'Área B', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 24, hoursPerWeek: 168, active: true },
+      { id: 'mach-3', name: 'Banda Transportadora BT-05', area: 'Línea 1', plantId: 'plant-1', plantName: 'Planta 1', hoursPerDay: 16, hoursPerWeek: 96, active: true },
+      { id: 'mach-4', name: 'Extrusora EX-3000', area: 'Línea 2', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
+      { id: 'mach-5', name: 'Robot Soldador RS-01', area: 'Celda A', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
+      { id: 'mach-6', name: 'Caldera Industrial CI-02', area: 'Cuarto de Máquinas', plantId: 'plant-2', plantName: 'Planta 2', hoursPerDay: 24, hoursPerWeek: 168, active: true },
+    ]);
+  }
+
+  if (!db.get(DB_KEYS.CONFIG)) {
+    db.set(DB_KEYS.CONFIG, {
+      slaMinutes: 60,
+      slaEnabled: true,
+      companyName: 'SOMAC · Danfoss',
+      escalationText: '🚨 ALERTA: Falla en {machine} sigue sin atención después de {minutes} minutos.',
+    });
+  }
+
+  if (!db.get(DB_KEYS.REPORTS)) db.set(DB_KEYS.REPORTS, []);
   if (!db.get(DB_KEYS.PM_TICKETS)) db.set(DB_KEYS.PM_TICKETS, []);
   if (!db.get(DB_KEYS.REQUISITIONS)) db.set(DB_KEYS.REQUISITIONS, []);
   if (!db.get(DB_KEYS.AUDIT_LOG)) db.set(DB_KEYS.AUDIT_LOG, []);
+  if (!db.get(DB_KEYS.INVENTORY)) db.set(DB_KEYS.INVENTORY, []);
 }
 
 // ---- Plants -------------------------------------------------

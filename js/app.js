@@ -296,52 +296,13 @@ function renderLogin() {
           <input type="password" id="login-pass" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
         </div>
         <div id="login-error" class="form-error hidden"></div>
-        <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px">
+        <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:12px">
           🔐 Iniciar Sesión
         </button>
       </form>
-
-      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border-color)">
-        <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Demo - Accesos Rápidos (1 Clic)</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          ${[
-            ['👷 Sup. Operación (P1)', 'operator', 'op123'],
-            ['👷 Sup. Operación (P2)', 'operator2', 'op123'],
-            ['🔧 Técnico Mtto (P1)', 'tecnico', 'tec123'],
-            ['🔧 Técnico Mtto (P2)', 'tecnico2', 'tec123'],
-            ['👔 Sup. Mtto (P1)', 'supervisor', 'sup123'],
-            ['👔 Sup. Mtto (P2)', 'supervisor2', 'sup123'],
-            ['📦 Planeador Mtto', 'planeador', 'plan123'],
-            ['🛠️ Programador MP', 'programador', 'prog123'],
-            ['📺 Pantalla TV', 'tv', 'tv'],
-            ['⚙️ Admin SOMAC', 'admin', 'admin123'],
-          ].map(([label,u,p]) => `
-            <button onclick="loginDemoUser('${u}','${p}')"
-              class="btn btn-ghost btn-sm" style="font-size:11px;justify-content:flex-start;padding:6px 10px">
-              ${label}
-            </button>
-          `).join('')}
-        </div>
-      </div>
     </div>
   </div>`;
 }
-
-function loginDemoUser(u, p) {
-  document.getElementById('login-user').value = u;
-  document.getElementById('login-pass').value = p;
-  const result = Auth.login(u, p);
-  if (result.success) {
-    App.showDashboard();
-  } else {
-    const errEl = document.getElementById('login-error');
-    if (errEl) {
-      errEl.textContent = result.error || 'Credenciales no válidas';
-      errEl.classList.remove('hidden');
-    }
-  }
-}
-window.loginDemoUser = loginDemoUser;
 
 function renderAppLayout(user, activeSection) {
   const nav = getNavItems(user);
