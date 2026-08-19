@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SOMAC - Sistema Operativo de Mantenimiento Correctivo. Control de fallas, KPIs, análisis de causa raíz y gestión de turnos.">
+  <title>SOMAC · Sistema Operativo de Mantenimiento Correctivo</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2f81f7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap" rel="stylesheet">
+
+  <!-- Flatpickr Dark Calendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css?v=21">
+</head>
+<body>
+
+  <!-- App Mount Point -->
+  <div id="app">
+    <!-- Loading state -->
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#0d1117">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 0 32px rgba(59,130,246,.4)">🔧</div>
+      <div class="loading-spinner"></div>
+      <div style="font-size:13px;color:#64748b;font-family:Inter,sans-serif;letter-spacing:.04em">Cargando SOMAC...</div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="notification-center"></div>
+
+  <!-- Data Layer -->
+  <script src="js/data.js?v=17"></script>
+
+  <!-- Auth Module -->
+  <script src="js/auth.js?v=5"></script>
+
+  <!-- Notifications -->
+  <script src="js/notifications.js?v=3"></script>
+
+  <!-- Export Module -->
+  <script src="js/export.js?v=3"></script>
+
+  <!-- Views: Role-based -->
+  <script src="js/views/roles.js?v=25"></script>
+  <script src="js/views/knowledge_base.js?v=5"></script>
+
+  <!-- Views: Admin -->
+  <script src="js/views/admin.js?v=17"></script>
+
+  <!-- Views: PM Programmer -->
+  <script src="js/views/pm.js?v=5"></script>
+
+  <!-- Views: Requisitions, Planned Tasks & Planner -->
+  <script src="js/views/requisitions.js?v=5"></script>
+  <script src="js/views/planned.js?v=3"></script>
+  <script src="js/views/planner.js?v=3"></script>
+  <script src="js/views/daily_summary.js?v=3"></script>
+
+  <!-- Main App Router (loads last) -->
+  <script src="js/app.js?v=21"></script>
+
+  <!-- Flatpickr Library -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+  <script>
+    // Initialize Flatpickr on all date/datetime-local inputs whenever DOM changes
+    const fpConfig = {
+      theme: 'dark',
+      locale: 'es',
+      dateFormat: 'Y-m-d',
+      allowInput: true,
+    };
+    const fpConfigDT = {
+      theme: 'dark',
+      locale: 'es',
+      enableTime: true,
+      dateFormat: 'Y-m-dTH:i',
+      time_24hr: true,
+      allowInput: true,
+    };
+    function initFlatpickr() {
+      document.querySelectorAll('input[type="date"]:not(._flatpickr)').forEach(el => {
+        flatpickr(el, fpConfig);
+      });
+      document.querySelectorAll('input[type="datetime-local"]:not(._flatpickr)').forEach(el => {
+        flatpickr(el, fpConfigDT);
+      });
+    }
+    // Re-init when modals or dynamic content appear
+    const fpObserver = new MutationObserver(() => {
+      if (typeof flatpickr !== 'undefined') initFlatpickr();
+    });
+    fpObserver.observe(document.body, { childList: true, subtree: true });
+  </script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[SW] Registered:', reg.scope))
+          .catch(err => console.warn('[SW] Registration failed:', err));
+      });
+    }
+  </script>
+
+</body>
+</html>

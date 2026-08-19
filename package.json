@@ -1,0 +1,21 @@
+{
+  "name": "somac-mantenimiento",
+  "version": "1.0.0",
+  "description": "SOMAC - Sistema Operativo de Mantenimiento y Control",
+  "private": true,
+  "scripts": {
+    "start": "serve -p 3000 .",
+    "deploy:vercel": "npx vercel --prod",
+    "deploy:firebase": "npx firebase deploy --only hosting",
+    "login:vercel": "npx vercel login",
+    "login:firebase": "npx firebase login"
+  },
+  "keywords": [
+    "maintenance",
+    "pwa",
+    "kpi",
+    "industrial"
+  ],
+  "author": "SOMAC Team",
+  "license": "UNLICENSED"
+}
