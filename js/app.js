@@ -358,7 +358,7 @@ function renderAppLayout(user, activeSection) {
             <div class="page-title" id="current-page-title">SOMAC</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="header-right-actions" style="display:flex;align-items:center;gap:8px">
           <!-- Live Refresh Pill Indicator -->
           <div class="live-refresh-pill" id="live-refresh-widget" style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:20px;font-size:11px">
             <span style="width:7px;height:7px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);display:inline-block"></span>
@@ -367,19 +367,23 @@ function renderAppLayout(user, activeSection) {
           </div>
 
           <!-- Refresh Rate Selector -->
-          <select class="form-select" onchange="App.setRefreshInterval(this.value)" title="Frecuencia de actualización" style="padding:4px 8px;font-size:11px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-secondary);cursor:pointer;width:auto">
-            <option value="300" selected>⏱️ 5 min</option>
-            <option value="120">⏱️ 2 min</option>
-            <option value="600">⏱️ 10 min</option>
-            <option value="0">⏸️ Pausar</option>
-          </select>
+          <div class="header-rate-selector">
+            <select class="form-select" onchange="App.setRefreshInterval(this.value)" title="Frecuencia de actualización" style="padding:4px 8px;font-size:11px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-secondary);cursor:pointer;width:auto">
+              <option value="300" selected>⏱️ 5 min</option>
+              <option value="120">⏱️ 2 min</option>
+              <option value="600">⏱️ 10 min</option>
+              <option value="0">⏸️ Pausar</option>
+            </select>
+          </div>
 
           <!-- Fullscreen button -->
-          <button class="btn btn-ghost btn-sm" onclick="App.toggleFullscreen()" title="Pantalla Completa (TV)" style="padding:4px 8px;font-size:13px">
-            ⛶
-          </button>
+          <div class="header-fullscreen-btn">
+            <button class="btn btn-ghost btn-sm" onclick="App.toggleFullscreen()" title="Pantalla Completa (TV)" style="padding:4px 8px;font-size:13px">
+              ⛶
+            </button>
+          </div>
 
-          <div style="font-size:12px;color:var(--text-secondary);margin-left:4px">
+          <div class="header-plant-badge" style="font-size:12px;color:var(--text-secondary);margin-left:4px">
             🏭 <strong style="color:var(--text-primary)">${plantBadge}</strong>
           </div>
         </div>

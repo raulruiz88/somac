@@ -171,9 +171,9 @@ function renderSVGLineChart(options) {
 
   return `
   <div class="card chart-line-card" style="padding:20px 22px;background:rgba(22, 28, 40, 0.75);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.14);display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-      <div style="font-size:14px;font-weight:800;color:var(--text-primary)">${title}</div>
-      ${annualAvg !== null ? `<span style="font-size:11px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.12);padding:3px 10px;border-radius:12px;border:1px solid rgba(245,158,11,0.25)">Prom. Anual: ${annualAvg}${unit}</span>` : ''}
+    <div class="chart-header-row" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div style="font-size:14px;font-weight:800;color:var(--text-primary);flex:1;min-width:180px">${title}</div>
+      ${annualAvg !== null ? `<span style="font-size:11px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.12);padding:3px 10px;border-radius:12px;border:1px solid rgba(245,158,11,0.25);white-space:nowrap">${annualAvg}${unit} prom. anual</span>` : ''}
     </div>
     <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">${sub}</div>
 
@@ -308,7 +308,7 @@ function renderAdminDashboard() {
     </div>
 
     <!-- Main Content Grid: Failure Reports Table + Top Downtime Machines -->
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start">
+    <div class="dashboard-main-grid">
 
       <!-- Active / Recent Failure Reports Table -->
       <div class="card" style="padding:0;overflow:hidden">
@@ -603,7 +603,7 @@ function renderAdminStats() {
     </div>
 
     <!-- LINE CHARTS GRID (Front & Center Responsive) -->
-    <div class="charts-grid-row kpi-charts-expand" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="charts-grid-row kpi-charts-expand">
       ${renderSVGLineChart({
         title: '📈 Tendencia de MTTR (Tiempo de Reparación en Minutos)',
         sub: 'Evolución de intervención técnica vs promedio anual',
