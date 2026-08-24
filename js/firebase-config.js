@@ -1,6 +1,12 @@
-// ============================================================
-// SOMAC - Firebase Cloud Firestore Real-time Sync
-// ============================================================
+// SOMAC Official Firebase Configuration
+window.SOMAC_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDUDYJRuGy-trFL88mynLVVGFYN9bd4QlY",
+  authDomain: "somac-danfoss.firebaseapp.com",
+  projectId: "somac-danfoss",
+  storageBucket: "somac-danfoss.firebasestorage.app",
+  messagingSenderId: "990658636698",
+  appId: "1:990658636698:web:4f65c059f43eb9260a6823"
+};
 
 const FirebaseSync = {
   db: null,
