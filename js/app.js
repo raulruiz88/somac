@@ -69,6 +69,9 @@ const App = {
     document.querySelectorAll('[data-section]').forEach(el => {
       el.classList.toggle('active', el.dataset.section === section);
     });
+    // Auto-close sidebar on mobile when navigating
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebar-overlay')?.classList.remove('open');
     this.renderSection(section);
   },
 
