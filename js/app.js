@@ -218,11 +218,11 @@ const App = {
   },
 
   bindLoginEvents() {
-    document.getElementById('login-form')?.addEventListener('submit', (e) => {
+    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const u = document.getElementById('login-user').value.trim();
       const p = document.getElementById('login-pass').value;
-      const result = Auth.login(u, p);
+      const result = await Auth.login(u, p);
       if (result.success) {
         this.showDashboard();
       } else {

@@ -25,8 +25,13 @@ const Auth = {
     }
   },
 
-  login(username, password) {
-    const user = DB.Users.login(username, password);
+  async login(username, password) {
+    let user = DB.Users.login(username, password);
+    // If not found in local storage, query Firestore in the cloud
+    if (!user && window.FirebaseSync) {
+      await window.FirebaseSync.pullKey('mtto_users');
+      user = DB.Users.login(username, password);
+    }
     if (!user) return { success: false, error: 'Usuario o contraseña incorrectos' };
     this.currentUser = user;
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));

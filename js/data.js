@@ -54,30 +54,27 @@ function getNextSunday(fromDate = new Date()) {
 
 // ---- Seed Data (Clean Production Zero-State) -----------------
 function seedDatabase() {
-  const SEED_VERSION = 'v20_clean_prod';
-  const currentSeedVer = (typeof localStorage !== 'undefined') ? localStorage.getItem('mtto_seed_ver') : null;
-
   // Essential Base Users: Admin & TV
   const baseUsers = [
     { id: 'user-adm1', username: 'admin', password: 'admin123', name: 'Administrador SOMAC', role: 'admin', plantId: 'ambas', email: 'admin@danfoss.com', active: true, createdAt: now() },
     { id: 'user-tv', username: 'tv', password: 'tv', name: 'Pantalla Informativa (TV)', role: 'display', plantId: 'ambas', email: 'tv@danfoss.com', active: true, createdAt: now() }
   ];
 
-  // If migrating to clean production version, clear fake demo reports & demo users
-  if (currentSeedVer !== SEED_VERSION) {
-    db.set(DB_KEYS.USERS, baseUsers);
-    db.set(DB_KEYS.REPORTS, []);
-    db.set(DB_KEYS.PM_TICKETS, []);
-    db.set(DB_KEYS.REQUISITIONS, []);
-    db.set(DB_KEYS.AUDIT_LOG, []);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('mtto_seed_ver', SEED_VERSION);
-    }
-  }
-
   const existingUsers = db.get(DB_KEYS.USERS);
-  if (!existingUsers || existingUsers.length === 0) {
+  if (!existingUsers || !Array.isArray(existingUsers) || existingUsers.length === 0) {
     db.set(DB_KEYS.USERS, baseUsers);
+  } else {
+    // Make sure base admin and tv users exist, but keep all custom users intact!
+    let modified = false;
+    baseUsers.forEach(bu => {
+      if (!existingUsers.some(u => u.username.toLowerCase() === bu.username.toLowerCase())) {
+        existingUsers.push(bu);
+        modified = true;
+      }
+    });
+    if (modified) {
+      db.set(DB_KEYS.USERS, existingUsers);
+    }
   }
 
   // Initial Plants Data

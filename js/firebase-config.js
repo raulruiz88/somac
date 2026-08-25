@@ -48,6 +48,7 @@ const FirebaseSync = {
   },
 
   init() {
+    if (this.db) return true;
     const config = this.getConfig();
     if (!config || !config.projectId || config.projectId.includes('YOUR_PROJECT')) {
       console.log('ℹ️ Firebase: Configuración pendiente. Trabajando en modo local.');
@@ -70,8 +71,9 @@ const FirebaseSync = {
       this.db = firebase.firestore();
       console.log('🔥 Firebase Cloud Firestore conectado exitosamente:', config.projectId);
 
-      // Start real-time cloud listeners
+      // Start real-time cloud listeners & pull latest data
       this.startRealtimeListeners();
+      this.pullAllFromCloud();
       return true;
     } catch (err) {
       console.error('❌ Error al inicializar Firebase:', err);
@@ -113,8 +115,48 @@ const FirebaseSync = {
     });
   },
 
+  // Pull single collection from Firestore
+  async pullKey(localKey) {
+    if (!this.db) {
+      this.init();
+    }
+    if (!this.db) return null;
+
+    const colName = this.collectionMap[localKey];
+    if (!colName) return null;
+
+    try {
+      const docSnap = await this.db.collection('somac_data').doc(colName).get();
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        if (data && data.items !== undefined) {
+          this.isSyncing = true;
+          db.set(localKey, data.items, true);
+          this.isSyncing = false;
+          return data.items;
+        }
+      }
+    } catch (err) {
+      console.warn(`Error al obtener ${colName} de Firestore:`, err);
+    }
+    return null;
+  },
+
+  // Pull all remote data from Cloud
+  async pullAllFromCloud() {
+    if (!this.db) this.init();
+    if (!this.db) return false;
+    for (const localKey of Object.keys(this.collectionMap)) {
+      await this.pullKey(localKey);
+    }
+    return true;
+  },
+
   // Save changes to Firestore
   async saveKey(localKey, val) {
+    if (!this.db) {
+      this.init();
+    }
     if (!this.db || this.isSyncing) return;
     const colName = this.collectionMap[localKey];
     if (!colName) return;
@@ -131,6 +173,7 @@ const FirebaseSync = {
 
   // Push all local database to Firebase (Initial Migration)
   async pushAllToCloud() {
+    if (!this.db) this.init();
     if (!this.db) return false;
     try {
       for (const [localKey, colName] of Object.entries(this.collectionMap)) {
@@ -150,9 +193,15 @@ const FirebaseSync = {
 
 window.FirebaseSync = FirebaseSync;
 
-// Auto-initialize when script loads
+// Auto-initialize immediately
+try {
+  FirebaseSync.init();
+} catch (e) {}
+
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    FirebaseSync.init();
-  }, 100);
+  FirebaseSync.init();
+});
+
+window.addEventListener('load', () => {
+  FirebaseSync.init();
 });
