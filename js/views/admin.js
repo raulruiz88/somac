@@ -1585,7 +1585,7 @@ function openUserModal(editId) {
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
-  modal.querySelector('#user-form').addEventListener('submit', e => {
+  modal.querySelector('#user-form').addEventListener('submit', async e => {
     e.preventDefault();
     const pass = document.getElementById('usr-pass').value;
     const data = {
@@ -1596,22 +1596,25 @@ function openUserModal(editId) {
     };
     if (pass) data.password = pass;
 
-    if (editId) DB.Users.update(editId, data, Auth.currentUser);
-    else DB.Users.create(data, Auth.currentUser);
-
-    modal.remove();
-    NotifSystem.toast('success', 'Usuario Guardado', `Usuario ${data.name} actualizado.`);
-    App.renderSection('admin-config');
+    try {
+      if (editId) await DB.Users.update(editId, data, Auth.currentUser);
+      else await DB.Users.create(data, Auth.currentUser);
+      modal.remove();
+      NotifSystem.toast('success', '☁️ Usuario Guardado', `${data.name} sincronizado con la nube.`);
+      App.renderSection('admin-config');
+    } catch (err) {
+      NotifSystem.toast('error', 'Error', err.message || 'No se pudo guardar el usuario.');
+    }
   });
 }
 
-function deleteUserAdmin(userId) {
+async function deleteUserAdmin(userId) {
   if (userId === Auth.currentUser.id) {
     NotifSystem.toast('error', 'Acción no permitida', 'No puedes eliminar tu propia cuenta.');
     return;
   }
   if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
-  DB.Users.delete(userId, Auth.currentUser);
+  await DB.Users.delete(userId, Auth.currentUser);
   NotifSystem.toast('info', 'Usuario Eliminado', '');
   App.renderSection('admin-config');
 }

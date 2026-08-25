@@ -209,7 +209,7 @@ const Users = {
     }
     return null;
   },
-  create(data, user) {
+  async create(data, user) {
     const users = this.getAll();
     if (users.some(u => u.username.toLowerCase() === data.username.toLowerCase())) {
       throw new Error('El nombre de usuario ya existe');
@@ -219,22 +219,38 @@ const Users = {
       username: data.username.trim(),
       password: data.password,
       name: data.name,
-      role: data.role, // 'sup_op'|'tecnico'|'sup_mtto'|'planeador'|'programador'|'admin'
-      plantId: data.plantId || 'plant-1', // 'plant-1'|'plant-2'|'ambas'
+      role: data.role,
+      plantId: data.plantId || 'plant-1',
       email: data.email || '',
       active: true,
       createdAt: now()
     };
-    db.set(DB_KEYS.USERS, [...users, newUser]);
+    const updated = [...users, newUser];
+    localStorage.setItem(DB_KEYS.USERS, JSON.stringify(updated));
+    // Force push to Firebase (even if isConnected() returns false briefly on load)
+    if (window.FirebaseSync) {
+      await window.FirebaseSync.init();
+      await window.FirebaseSync.saveKey(DB_KEYS.USERS, updated);
+    }
     Audit.log('USER_CREATED', user ? user.name : 'Sistema', `Usuario ${newUser.username} (${newUser.role}) creado`);
     return newUser;
   },
-  update(id, data, user) {
-    db.update(DB_KEYS.USERS, us => (us || []).map(u => u.id === id ? { ...u, ...data } : u));
+  async update(id, data, user) {
+    const users = this.getAll().map(u => u.id === id ? { ...u, ...data } : u);
+    localStorage.setItem(DB_KEYS.USERS, JSON.stringify(users));
+    if (window.FirebaseSync) {
+      await window.FirebaseSync.init();
+      await window.FirebaseSync.saveKey(DB_KEYS.USERS, users);
+    }
     Audit.log('USER_UPDATED', user ? user.name : 'Sistema', `Usuario ${id} actualizado`);
   },
-  delete(id, user) {
-    db.update(DB_KEYS.USERS, us => (us || []).filter(u => u.id !== id));
+  async delete(id, user) {
+    const users = this.getAll().filter(u => u.id !== id);
+    localStorage.setItem(DB_KEYS.USERS, JSON.stringify(users));
+    if (window.FirebaseSync) {
+      await window.FirebaseSync.init();
+      await window.FirebaseSync.saveKey(DB_KEYS.USERS, users);
+    }
     Audit.log('USER_DELETED', user ? user.name : 'Sistema', `Usuario ${id} eliminado`);
   }
 };
