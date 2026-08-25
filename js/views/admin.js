@@ -1471,7 +1471,6 @@ function renderAdminUsers() {
     sup_op: 'Supervisor Operación',
     tecnico: 'Técnico Mantenimiento',
     sup_mtto: 'Supervisor Mantenimiento',
-    planeador: 'Planeador Mantenimiento',
     programador: 'Programador MP',
     admin: 'Administrador',
     display: 'Pantalla Informativa'
@@ -1552,8 +1551,7 @@ function openUserModal(editId) {
     sup_op: 'Supervisor Operación (Crear Reportes)',
     tecnico: 'Técnico Mantenimiento (Atender y Cerrar)',
     sup_mtto: 'Supervisor Mantenimiento (Visto Bueno y Gestión)',
-    planeador: 'Planeador Mantenimiento (Materiales y Paros)',
-    programador: 'Programador MP (Plan MP y Actividades)',
+    programador: 'Programador MP (Plan MP, Materiales y Actividades)',
     admin: 'Administrador (Acceso Total)'
   };
 

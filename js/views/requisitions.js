@@ -31,7 +31,7 @@ function reqStatusBadge(status) {
 function renderRequisitionsView() {
   var user = Auth.currentUser;
   var allReqs = DB.Requisitions.getByUserPlant(user);
-  var isPlannerOrAdmin = ['planeador', 'admin', 'sup_mtto'].includes(user.role);
+  var isPlannerOrAdmin = ['programador', 'planeador', 'admin', 'sup_mtto'].includes(user.role);
 
   var pendingReqs = allReqs.filter(function(r){ return r.status === 'pendiente_aprobacion'; });
   var activeReqs  = allReqs.filter(function(r){ return ['aprobada','cotizando','en_espera_auth','comprado'].includes(r.status); });

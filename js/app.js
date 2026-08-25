@@ -495,30 +495,19 @@ function getNavItems(user) {
       <span class="nav-icon">📚</span> Historial
     </button>`;
 
-  // 4. Planeador de Mantenimiento
-  if (role === 'planeador') return `
-    <span class="nav-section-title">Planificación &amp; Materiales</span>
+  // 4. Programador MP (Plan MP + Materiales & Requisiciones + Historial)
+  if (role === 'programador' || role === 'planeador') return `
+    <span class="nav-section-title">Plan MP &amp; Materiales</span>
+    <button class="nav-item ${App.currentSection==='pm-tickets'?'active':''}" data-section="pm-tickets">
+      <span class="nav-icon">🛠️</span> Plan de Mantenimiento (MP)
+      ${pmPendingCount > 0 ? `<span class="nav-badge blue">${pmPendingCount}</span>` : ''}
+    </button>
     <button class="nav-item ${App.currentSection==='requisitions'?'active':''}" data-section="requisitions">
-      <span class="nav-icon">🛒</span> Materiales Solicitados
+      <span class="nav-icon">🛒</span> Materiales &amp; Almacén
       ${reqCount > 0 ? `<span class="nav-badge yellow">${reqCount}</span>` : ''}
     </button>
-    <button class="nav-item ${App.currentSection==='pm-tickets'?'active':''}" data-section="pm-tickets">
-      <span class="nav-icon">📌</span> Actividades Pendientes (MP)
-      ${pmPendingCount > 0 ? `<span class="nav-badge blue">${pmPendingCount}</span>` : ''}
-    </button>
     <button class="nav-item ${App.currentSection==='knowledge-base'?'active':''}" data-section="knowledge-base">
-      <span class="nav-icon">📚</span> Historial
-    </button>`;
-
-  // 5. Programador MP
-  if (role === 'programador') return `
-    <span class="nav-section-title">Plan MP</span>
-    <button class="nav-item ${App.currentSection==='pm-tickets'?'active':''}" data-section="pm-tickets">
-      <span class="nav-icon">🛠️</span> Actividades Pendientes (MP)
-      ${pmPendingCount > 0 ? `<span class="nav-badge blue">${pmPendingCount}</span>` : ''}
-    </button>
-    <button class="nav-item ${App.currentSection==='knowledge-base'?'active':''}" data-section="knowledge-base">
-      <span class="nav-icon">📚</span> Historial
+      <span class="nav-icon">📚</span> Historial de Fallas
     </button>`;
 
   // 6. Pantalla Informativa / TV

@@ -16,7 +16,7 @@ function renderPMView() {
   const doneTickets    = allTickets.filter(t => ['incorporado', 'cancelado'].includes(t.status));
 
   const machines = DB.Machines.getByPlant(user.plantId);
-  const canCreate = ['planeador', 'sup_mtto', 'admin'].includes(user.role);
+  const canCreate = ['programador', 'planeador', 'sup_mtto', 'admin'].includes(user.role);
 
   function applyFilters(list) {
     return list.filter(item => {
@@ -111,7 +111,7 @@ function renderPMView() {
 
 function renderPMTicketCard(t, isDone) {
   const user = Auth.currentUser;
-  const canAssign = ['planeador', 'sup_mtto', 'admin'].includes(user.role);
+  const canAssign = ['programador', 'planeador', 'sup_mtto', 'admin'].includes(user.role);
   const statusLabels = {
     pendiente: 'Por Programar / Asignar 🟡',
     'en-revision': 'Programado / Asignado 🔵',
