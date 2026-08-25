@@ -1644,6 +1644,17 @@ body.fullscreen-mode .chart-line-card {
   }
 }
 
+/* === USERS RESPONSIVE TABLE/CARDS ========================= */
+/* Desktop: show table, hide cards */
+.users-table-desktop { display: block; }
+.users-cards-mobile  { display: none; }
+
+/* Mobile: hide table, show cards */
+@media (max-width: 768px) {
+  .users-table-desktop { display: none !important; }
+  .users-cards-mobile  { display: block !important; }
+}
+
 /* === ANIMATIONS =========================================== */
 .fade-in  { animation: fadeIn .3s ease; }
 .slide-up { animation: slideUp .3s ease; }

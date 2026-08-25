@@ -207,14 +207,29 @@ const App = {
 
   updateLiveBadgeUI() {
     const textEl = document.getElementById('live-refresh-text');
-    if (!textEl) return;
-    if (this.liveRefreshState.intervalSeconds <= 0) {
-      textEl.textContent = 'Pausado';
-      return;
+    if (textEl) {
+      if (this.liveRefreshState.intervalSeconds <= 0) {
+        textEl.textContent = 'Pausado';
+      } else {
+        const mins = Math.floor(this.liveRefreshState.remainingSeconds / 60);
+        const secs = this.liveRefreshState.remainingSeconds % 60;
+        textEl.textContent = `En vivo · ${mins}:${String(secs).padStart(2, '0')}`;
+      }
     }
-    const mins = Math.floor(this.liveRefreshState.remainingSeconds / 60);
-    const secs = this.liveRefreshState.remainingSeconds % 60;
-    textEl.textContent = `En vivo · ${mins}:${String(secs).padStart(2, '0')}`;
+    // Update Firebase connection status dot
+    const fbDot = document.getElementById('firebase-status-dot');
+    if (fbDot) {
+      const connected = window.FirebaseSync && window.FirebaseSync.isConnected();
+      if (connected) {
+        fbDot.style.background = '#10b981'; // green
+        fbDot.style.boxShadow = '0 0 5px #10b981';
+        fbDot.title = '🔥 Firebase conectado';
+      } else {
+        fbDot.style.background = '#64748b'; // gray
+        fbDot.style.boxShadow = 'none';
+        fbDot.title = '⚠️ Firebase sin conexión (modo local)';
+      }
+    }
   },
 
   bindLoginEvents() {
@@ -364,8 +379,9 @@ function renderAppLayout(user, activeSection) {
         <div class="header-right-actions" style="display:flex;align-items:center;gap:8px">
           <!-- Live Refresh Pill Indicator -->
           <div class="live-refresh-pill" id="live-refresh-widget" style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:20px;font-size:11px">
-            <span style="width:7px;height:7px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);display:inline-block"></span>
+            <span id="live-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);display:inline-block"></span>
             <span id="live-refresh-text" style="color:var(--text-secondary);font-weight:600">En vivo · 5:00</span>
+            <span id="firebase-status-dot" title="Estado Firebase" style="width:7px;height:7px;border-radius:50%;background:#64748b;display:inline-block;margin-left:2px"></span>
             <button class="btn-icon" onclick="App.triggerManualRefresh()" title="Actualizar datos ahora" style="padding:1px;font-size:12px;color:var(--text-muted);cursor:pointer">🔄</button>
           </div>
 

@@ -1473,25 +1473,20 @@ function renderAdminUsers() {
     sup_mtto: 'Supervisor Mantenimiento',
     planeador: 'Planeador Mantenimiento',
     programador: 'Programador MP',
-    admin: 'Administrador'
+    admin: 'Administrador',
+    display: 'Pantalla Informativa'
   };
-
-  const isConnected = window.FirebaseSync && window.FirebaseSync.isConnected();
 
   return `
   <div class="fade-in">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
       <div style="font-size:15px;font-weight:700">👥 Usuarios & Permisos del Sistema</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="syncUsersToCloud(this)" style="font-size:12px">
-          ${isConnected ? '☁️ Sincronizar con Nube' : '☁️ Subir a Firebase'}
-        </button>
-        <button class="btn btn-primary" onclick="openUserModal(null)">➕ Agregar Usuario</button>
-      </div>
+      <button class="btn btn-primary" onclick="openUserModal(null)">➕ Agregar Usuario</button>
     </div>
 
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%">
-      <table style="min-width:560px">
+    <!-- Desktop Table -->
+    <div class="users-table-desktop table-container">
+      <table>
         <thead>
           <tr>
             <th>Nombre</th>
@@ -1523,26 +1518,33 @@ function renderAdminUsers() {
         </tbody>
       </table>
     </div>
+
+    <!-- Mobile Cards -->
+    <div class="users-cards-mobile">
+      ${users.map(u => {
+        const plantLabel = u.plantId === 'ambas' ? 'Ambas Plantas' : (u.plantId === 'plant-2' ? 'Planta 2' : 'Planta 1');
+        return `
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary)">${u.name}</div>
+              <div style="font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:2px">${u.username}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-icon" onclick="openUserModal('${u.id}')" title="Editar">✏️</button>
+              <button class="btn-icon" onclick="deleteUserAdmin('${u.id}')" title="Eliminar" style="color:var(--accent-red)">🗑️</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span class="badge badge-closed" style="font-size:10px">${roleLabels[u.role] || u.role}</span>
+            <span style="font-size:11px;color:var(--text-secondary)">🏭 ${plantLabel}</span>
+            <span class="badge ${u.active !== false ? 'badge-closed' : 'badge-open'}" style="font-size:10px">${u.active !== false ? 'Activo' : 'Inactivo'}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
   </div>`;
 }
-
-async function syncUsersToCloud(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
-  try {
-    if (window.FirebaseSync) {
-      await window.FirebaseSync.init();
-      const users = DB.Users.getAll();
-      await window.FirebaseSync.saveKey('mtto_users', users);
-      NotifSystem.toast('success', '☁️ Usuarios sincronizados', `${users.length} usuario(s) guardados en Firebase.`);
-    } else {
-      NotifSystem.toast('error', 'Sin conexión', 'Firebase no está configurado.');
-    }
-  } catch (e) {
-    NotifSystem.toast('error', 'Error', 'No se pudo sincronizar. Verifica la conexión a internet.');
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar con Nube'; }
-}
-window.syncUsersToCloud = syncUsersToCloud;
 
 function openUserModal(editId) {
   const user = editId ? DB.Users.getById(editId) : null;
