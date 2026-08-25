@@ -12,7 +12,8 @@ const FirebaseSync = {
   db: null,
   app: null,
   isSyncing: false,
-  unsubscribers: [],
+  lastStatus: 'connecting', // 'connected' | 'permission-denied' | 'error' | 'disconnected'
+  lastErrorMsg: '',
 
   // Mapping between local DB_KEYS and Firestore collection names
   collectionMap: {
@@ -44,19 +45,21 @@ const FirebaseSync = {
   },
 
   isConnected() {
-    return !!this.db;
+    return !!this.db && this.lastStatus === 'connected';
   },
 
   init() {
-    if (this.db) return true;
+    if (this.db && this.lastStatus === 'connected') return true;
     const config = this.getConfig();
     if (!config || !config.projectId || config.projectId.includes('YOUR_PROJECT')) {
+      this.lastStatus = 'disconnected';
       console.log('ℹ️ Firebase: Configuración pendiente. Trabajando en modo local.');
       return false;
     }
 
     try {
       if (!window.firebase) {
+        this.lastStatus = 'error';
         console.warn('⚠️ SDK de Firebase no encontrado.');
         return false;
       }
@@ -69,13 +72,15 @@ const FirebaseSync = {
       }
 
       this.db = firebase.firestore();
-      console.log('🔥 Firebase Cloud Firestore conectado exitosamente:', config.projectId);
+      console.log('🔥 Firebase Cloud Firestore inicializado:', config.projectId);
 
       // Start real-time cloud listeners & pull latest data
       this.startRealtimeListeners();
       this.pullAllFromCloud();
       return true;
     } catch (err) {
+      this.lastStatus = 'error';
+      this.lastErrorMsg = err.message || '';
       console.error('❌ Error al inicializar Firebase:', err);
       return false;
     }
@@ -92,6 +97,8 @@ const FirebaseSync = {
     Object.entries(this.collectionMap).forEach(([localKey, colName]) => {
       try {
         const unsub = this.db.collection('somac_data').doc(colName).onSnapshot(docSnap => {
+          this.lastStatus = 'connected';
+          this.lastErrorMsg = '';
           if (docSnap.exists) {
             const data = docSnap.data();
             if (data && data.items !== undefined) {
@@ -105,7 +112,15 @@ const FirebaseSync = {
             }
           }
         }, err => {
-          console.warn(`Error en listener de Firestore (${colName}):`, err);
+          if (err.code === 'permission-denied') {
+            this.lastStatus = 'permission-denied';
+            this.lastErrorMsg = 'Reglas de seguridad bloqueadas en Firebase Console.';
+            console.error('🚨 Error de permisos en Firebase Firestore: Debes habilitar "allow read, write: if true;" en las Reglas de Firebase Console.');
+          } else {
+            this.lastStatus = 'error';
+            this.lastErrorMsg = err.message || '';
+            console.warn(`Error en listener de Firestore (${colName}):`, err);
+          }
         });
 
         this.unsubscribers.push(unsub);
@@ -127,6 +142,8 @@ const FirebaseSync = {
 
     try {
       const docSnap = await this.db.collection('somac_data').doc(colName).get();
+      this.lastStatus = 'connected';
+      this.lastErrorMsg = '';
       if (docSnap.exists) {
         const data = docSnap.data();
         if (data && data.items !== undefined) {
@@ -137,7 +154,13 @@ const FirebaseSync = {
         }
       }
     } catch (err) {
-      console.warn(`Error al obtener ${colName} de Firestore:`, err);
+      if (err.code === 'permission-denied') {
+        this.lastStatus = 'permission-denied';
+        this.lastErrorMsg = 'Reglas de Firestore bloqueadas.';
+        console.error('🚨 Permiso denegado en Firestore:', err);
+      } else {
+        console.warn(`Error al obtener ${colName} de Firestore:`, err);
+      }
     }
     return null;
   },
@@ -166,8 +189,16 @@ const FirebaseSync = {
         items: val || (Array.isArray(val) ? [] : {}),
         updatedAt: new Date().toISOString()
       }, { merge: true });
+      this.lastStatus = 'connected';
+      this.lastErrorMsg = '';
     } catch (err) {
-      console.error(`Error guardando en Firestore (${colName}):`, err);
+      if (err.code === 'permission-denied') {
+        this.lastStatus = 'permission-denied';
+        this.lastErrorMsg = 'Reglas de Firestore bloqueadas.';
+        console.error('🚨 Error de permisos al guardar en Firestore:', err);
+      } else {
+        console.error(`Error guardando en Firestore (${colName}):`, err);
+      }
     }
   },
 

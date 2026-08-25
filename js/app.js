@@ -219,15 +219,23 @@ const App = {
     // Update Firebase connection status dot
     const fbDot = document.getElementById('firebase-status-dot');
     if (fbDot) {
-      const connected = window.FirebaseSync && window.FirebaseSync.isConnected();
-      if (connected) {
-        fbDot.style.background = '#10b981'; // green
-        fbDot.style.boxShadow = '0 0 5px #10b981';
-        fbDot.title = '🔥 Firebase conectado';
+      const status = window.FirebaseSync?.lastStatus || 'disconnected';
+      if (status === 'connected') {
+        fbDot.style.background = '#10b981';
+        fbDot.style.boxShadow = '0 0 6px #10b981';
+        fbDot.title = '🟢 Nube Firebase conectada y sincronizada';
+      } else if (status === 'permission-denied') {
+        fbDot.style.background = '#ef4444';
+        fbDot.style.boxShadow = '0 0 6px #ef4444';
+        fbDot.title = '🔴 Permiso denegado: activa las reglas en Firebase Console';
+      } else if (status === 'connecting') {
+        fbDot.style.background = '#f59e0b';
+        fbDot.style.boxShadow = '0 0 6px #f59e0b';
+        fbDot.title = '🟡 Conectando a Firebase...';
       } else {
-        fbDot.style.background = '#64748b'; // gray
+        fbDot.style.background = '#64748b';
         fbDot.style.boxShadow = 'none';
-        fbDot.title = '⚠️ Firebase sin conexión (modo local)';
+        fbDot.title = '⚫ Sin conexión a Firebase (modo local)';
       }
     }
   },
