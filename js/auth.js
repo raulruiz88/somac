@@ -27,9 +27,9 @@ const Auth = {
 
   async login(username, password) {
     let user = DB.Users.login(username, password);
-    // If not found in local storage, query Firestore in the cloud
+    // If not found in local storage, sync with Firestore in the cloud
     if (!user && window.FirebaseSync) {
-      await window.FirebaseSync.pullKey('mtto_users');
+      await window.FirebaseSync.syncKey('mtto_users');
       user = DB.Users.login(username, password);
     }
     if (!user) return { success: false, error: 'Usuario o contraseña incorrectos' };

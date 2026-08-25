@@ -1,4 +1,7 @@
-// SOMAC Official Firebase Configuration
+// ============================================================
+// SOMAC - Firebase Cloud Firestore Bidirectional Sync Engine
+// ============================================================
+
 window.SOMAC_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDUDYJRuGy-trFL88mynLVVGFYN9bd4QlY",
   authDomain: "somac-danfoss.firebaseapp.com",
@@ -12,10 +15,10 @@ const FirebaseSync = {
   db: null,
   app: null,
   isSyncing: false,
+  unsubscribers: [],
   lastStatus: 'connecting', // 'connected' | 'permission-denied' | 'error' | 'disconnected'
   lastErrorMsg: '',
 
-  // Mapping between local DB_KEYS and Firestore collection names
   collectionMap: {
     'mtto_reports':      'reports',
     'mtto_users':        'users',
@@ -28,19 +31,22 @@ const FirebaseSync = {
     'mtto_audit_log':    'audit_log',
   },
 
-  // Get active configuration from storage or window
   getConfig() {
     try {
       const saved = localStorage.getItem('somac_firebase_config');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.projectId && parsed.apiKey && !parsed.projectId.includes('YOUR_PROJECT')) {
+          return parsed;
+        }
+      }
     } catch (e) {}
-
-    // Fallback default config template
     return window.SOMAC_FIREBASE_CONFIG || null;
   },
 
   saveConfig(configObj) {
     localStorage.setItem('somac_firebase_config', JSON.stringify(configObj));
+    this.db = null;
     this.init();
   },
 
@@ -53,7 +59,6 @@ const FirebaseSync = {
     const config = this.getConfig();
     if (!config || !config.projectId || config.projectId.includes('YOUR_PROJECT')) {
       this.lastStatus = 'disconnected';
-      console.log('ℹ️ Firebase: Configuración pendiente. Trabajando en modo local.');
       return false;
     }
 
@@ -64,7 +69,6 @@ const FirebaseSync = {
         return false;
       }
 
-      // Initialize or reuse Firebase App
       if (!firebase.apps || firebase.apps.length === 0) {
         this.app = firebase.initializeApp(config);
       } else {
@@ -74,9 +78,8 @@ const FirebaseSync = {
       this.db = firebase.firestore();
       console.log('🔥 Firebase Cloud Firestore inicializado:', config.projectId);
 
-      // Start real-time cloud listeners & pull latest data
       this.startRealtimeListeners();
-      this.pullAllFromCloud();
+      this.syncAll();
       return true;
     } catch (err) {
       this.lastStatus = 'error';
@@ -86,11 +89,44 @@ const FirebaseSync = {
     }
   },
 
+  // Merge array by unique key (username for users, id for others)
+  mergeArrays(localArr, remoteArr, keyProp = 'id') {
+    if (!Array.isArray(localArr)) localArr = [];
+    if (!Array.isArray(remoteArr)) remoteArr = [];
+
+    const map = new Map();
+    remoteArr.forEach(item => {
+      if (item) {
+        const k = (keyProp === 'username' && item.username) ? item.username.toLowerCase() : (item[keyProp] || item.id || item.username);
+        if (k) map.set(k, item);
+      }
+    });
+
+    localArr.forEach(item => {
+      if (item) {
+        const k = (keyProp === 'username' && item.username) ? item.username.toLowerCase() : (item[keyProp] || item.id || item.username);
+        if (k) {
+          if (map.has(k)) {
+            const existing = map.get(k);
+            const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+            const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+            if (itemTime >= existingTime) {
+              map.set(k, { ...existing, ...item });
+            }
+          } else {
+            map.set(k, item);
+          }
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  },
+
   // Listen to remote changes in Firestore and update local storage & UI in real time
   startRealtimeListeners() {
     if (!this.db) return;
 
-    // Clean up existing listeners if any
     this.unsubscribers.forEach(unsub => { try { unsub(); } catch(e){} });
     this.unsubscribers = [];
 
@@ -99,14 +135,22 @@ const FirebaseSync = {
         const unsub = this.db.collection('somac_data').doc(colName).onSnapshot(docSnap => {
           this.lastStatus = 'connected';
           this.lastErrorMsg = '';
+
           if (docSnap.exists) {
             const data = docSnap.data();
             if (data && data.items !== undefined) {
               const localVal = db.get(localKey);
-              // Compare if remote data is different before updating
-              if (JSON.stringify(localVal) !== JSON.stringify(data.items)) {
+              let finalVal = data.items;
+
+              // If it's an array, perform a smart merge so local offline entries aren't lost
+              if (Array.isArray(localVal) && Array.isArray(data.items)) {
+                const keyProp = localKey === 'mtto_users' ? 'username' : 'id';
+                finalVal = this.mergeArrays(localVal, data.items, keyProp);
+              }
+
+              if (JSON.stringify(localVal) !== JSON.stringify(finalVal)) {
                 this.isSyncing = true;
-                db.set(localKey, data.items, true); // true = fromRemote
+                db.set(localKey, finalVal, true);
                 this.isSyncing = false;
               }
             }
@@ -114,12 +158,10 @@ const FirebaseSync = {
         }, err => {
           if (err.code === 'permission-denied') {
             this.lastStatus = 'permission-denied';
-            this.lastErrorMsg = 'Reglas de seguridad bloqueadas en Firebase Console.';
-            console.error('🚨 Error de permisos en Firebase Firestore: Debes habilitar "allow read, write: if true;" en las Reglas de Firebase Console.');
+            this.lastErrorMsg = 'Reglas de Firestore bloqueadas.';
           } else {
             this.lastStatus = 'error';
             this.lastErrorMsg = err.message || '';
-            console.warn(`Error en listener de Firestore (${colName}):`, err);
           }
         });
 
@@ -130,56 +172,89 @@ const FirebaseSync = {
     });
   },
 
-  // Pull single collection from Firestore
-  async pullKey(localKey) {
-    if (!this.db) {
-      this.init();
-    }
+  // Smart Bidirectional Sync for a single key
+  async syncKey(localKey) {
+    if (!this.db) this.init();
     if (!this.db) return null;
 
     const colName = this.collectionMap[localKey];
     if (!colName) return null;
 
     try {
-      const docSnap = await this.db.collection('somac_data').doc(colName).get();
+      const docRef = this.db.collection('somac_data').doc(colName);
+      const docSnap = await docRef.get();
       this.lastStatus = 'connected';
       this.lastErrorMsg = '';
-      if (docSnap.exists) {
-        const data = docSnap.data();
-        if (data && data.items !== undefined) {
-          this.isSyncing = true;
-          db.set(localKey, data.items, true);
-          this.isSyncing = false;
-          return data.items;
+
+      const localVal = db.get(localKey);
+      let remoteVal = docSnap.exists ? docSnap.data()?.items : null;
+
+      // If remote does not exist, upload local data to cloud
+      if (!docSnap.exists || remoteVal === null || remoteVal === undefined) {
+        if (localVal) {
+          await docRef.set({
+            items: localVal,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
         }
+        return localVal;
+      }
+
+      // If both are arrays, reconcile and update both sides
+      if (Array.isArray(localVal) && Array.isArray(remoteVal)) {
+        const keyProp = localKey === 'mtto_users' ? 'username' : 'id';
+        const merged = this.mergeArrays(localVal, remoteVal, keyProp);
+
+        if (JSON.stringify(localVal) !== JSON.stringify(merged)) {
+          this.isSyncing = true;
+          db.set(localKey, merged, true);
+          this.isSyncing = false;
+        }
+
+        if (JSON.stringify(remoteVal) !== JSON.stringify(merged)) {
+          await docRef.set({
+            items: merged,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        }
+
+        return merged;
+      } else {
+        const merged = { ...(remoteVal || {}), ...(localVal || {}) };
+        if (JSON.stringify(localVal) !== JSON.stringify(merged)) {
+          this.isSyncing = true;
+          db.set(localKey, merged, true);
+          this.isSyncing = false;
+        }
+        return merged;
       }
     } catch (err) {
       if (err.code === 'permission-denied') {
         this.lastStatus = 'permission-denied';
         this.lastErrorMsg = 'Reglas de Firestore bloqueadas.';
-        console.error('🚨 Permiso denegado en Firestore:', err);
       } else {
-        console.warn(`Error al obtener ${colName} de Firestore:`, err);
+        this.lastStatus = 'error';
+        this.lastErrorMsg = err.message || '';
       }
+      console.warn(`Error al sincronizar ${colName}:`, err);
     }
     return null;
   },
 
-  // Pull all remote data from Cloud
-  async pullAllFromCloud() {
+  async syncAll() {
     if (!this.db) this.init();
     if (!this.db) return false;
+    let ok = true;
     for (const localKey of Object.keys(this.collectionMap)) {
-      await this.pullKey(localKey);
+      const res = await this.syncKey(localKey);
+      if (res === null && this.lastStatus !== 'connected') ok = false;
     }
-    return true;
+    return ok;
   },
 
   // Save changes to Firestore
   async saveKey(localKey, val) {
-    if (!this.db) {
-      this.init();
-    }
+    if (!this.db) this.init();
     if (!this.db || this.isSyncing) return;
     const colName = this.collectionMap[localKey];
     if (!colName) return;
@@ -195,29 +270,29 @@ const FirebaseSync = {
       if (err.code === 'permission-denied') {
         this.lastStatus = 'permission-denied';
         this.lastErrorMsg = 'Reglas de Firestore bloqueadas.';
-        console.error('🚨 Error de permisos al guardar en Firestore:', err);
       } else {
         console.error(`Error guardando en Firestore (${colName}):`, err);
       }
     }
   },
 
-  // Push all local database to Firebase (Initial Migration)
-  async pushAllToCloud() {
+  // Test read/write connection
+  async testConnection() {
     if (!this.db) this.init();
-    if (!this.db) return false;
+    if (!this.db) return { success: false, message: 'No se pudo inicializar Firebase' };
+
     try {
-      for (const [localKey, colName] of Object.entries(this.collectionMap)) {
-        const val = db.get(localKey);
-        await this.db.collection('somac_data').doc(colName).set({
-          items: val || (Array.isArray(val) ? [] : {}),
-          updatedAt: new Date().toISOString()
-        });
-      }
-      return true;
+      const testRef = this.db.collection('somac_data').doc('_test_ping');
+      await testRef.set({ ping: true, time: new Date().toISOString() });
+      this.lastStatus = 'connected';
+      this.lastErrorMsg = '';
+      return { success: true, message: 'Conexión a Firestore exitosa y reglas activas.' };
     } catch (err) {
-      console.error('Error al subir datos completos a Firebase:', err);
-      return false;
+      if (err.code === 'permission-denied') {
+        this.lastStatus = 'permission-denied';
+        return { success: false, message: 'Permiso denegado: debes activar "allow read, write: if true;" en las Reglas de Firebase Console.' };
+      }
+      return { success: false, message: err.message || 'Error al conectar con Firestore' };
     }
   }
 };

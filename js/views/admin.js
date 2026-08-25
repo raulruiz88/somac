@@ -1679,21 +1679,29 @@ function renderFirebaseConfigSubTab() {
 
         <div>
           <span class="badge ${isConnected ? 'badge-closed' : 'badge-open'}" style="font-size:12px;padding:6px 14px">
-            ${isConnected ? '🟢 Conectado en Tiempo Real' : '🟡 Modo Local (Sin credenciales)'}
+            ${isConnected ? '🟢 Conectado en Tiempo Real' : (window.FirebaseSync?.lastStatus === 'permission-denied' ? '🔴 Permiso Denegado (Reglas)' : '🟡 Conectando / Modo Local')}
           </span>
         </div>
       </div>
 
       <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:var(--text-secondary);line-height:1.6">
-        <strong>📋 ¿Cómo obtener tus credenciales de Firebase?</strong><br>
-        1. Entra a tu proyecto en <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent-blue);font-weight:700;text-decoration:underline">console.firebase.google.com</a>.<br>
-        2. Ve a <strong>Configuración del Proyecto (⚙️)</strong> → Pestaña <strong>General</strong> → Sección <strong>Tus apps (Web &lt;/&gt;)</strong>.<br>
-        3. Copia el objeto <code>firebaseConfig</code> y pégalo a continuación:
+        <strong>📋 Proyecto Firebase Vinculado:</strong> <code>${activeConfig?.projectId || 'somac-danfoss'}</code><br>
+        • La base de datos sincroniza automáticamente usuarios, máquinas, fallas y reportes entre computadoras, celulares y pantallas.<br>
+        • Si ves la insignia en rojo, asegúrate de publicar <code>allow read, write: if true;</code> en las Reglas de Firestore.
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+        <button type="button" class="btn btn-primary" onclick="testFirebaseConnectionFromUI()">
+          ⚡ Probar Conexión &amp; Sincronizar Ahora
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="pushAllToFirebaseFromUI()" style="border:1px solid rgba(255,255,255,0.15)">
+          ☁️ Forzar Subida Completa
+        </button>
       </div>
 
       <form id="firebase-config-form" onsubmit="saveFirebaseConfigFromUI(event)">
         <div class="form-group">
-          <label class="form-label">Configuración Firebase (JSON o campos clave) <span class="required">*</span></label>
+          <label class="form-label">Credenciales Firebase (JSON) <span class="required">*</span></label>
           <textarea id="fb-config-json" class="form-textarea" rows="8" style="font-family:monospace;font-size:12px" placeholder='{
   "apiKey": "AIzaSy...",
   "authDomain": "somac-xxxx.firebaseapp.com",
@@ -1705,17 +1713,38 @@ function renderFirebaseConfigSubTab() {
         </div>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button type="submit" class="btn btn-primary btn-lg">💾 Guardar y Conectar Firebase</button>
-          ${isConnected ? `
-            <button type="button" class="btn btn-ghost btn-lg" onclick="pushAllToFirebaseFromUI()" style="border:1px solid rgba(255,255,255,0.15)">
-              ☁️ Subir datos locales a la Nube
-            </button>
-          ` : ''}
+          <button type="submit" class="btn btn-primary btn-lg">💾 Guardar Credenciales</button>
         </div>
       </form>
     </div>
   </div>`;
 }
+
+async function testFirebaseConnectionFromUI() {
+  if (!window.FirebaseSync) return;
+  NotifSystem.toast('info', 'Probando...', 'Verificando lectura y escritura en Firestore...');
+  const res = await window.FirebaseSync.testConnection();
+  if (res.success) {
+    NotifSystem.toast('success', '¡Conectado!', 'Base de datos Firestore sincronizada.', 3500);
+    await window.FirebaseSync.syncAll();
+    App.renderSection('admin-config');
+  } else {
+    NotifSystem.toast('error', 'Atención', res.message, 7000);
+  }
+}
+
+async function pushAllToFirebaseFromUI() {
+  if (!window.FirebaseSync) return;
+  NotifSystem.toast('info', 'Sincronizando', 'Subiendo datos a Firestore...');
+  const ok = await window.FirebaseSync.syncAll();
+  if (ok) {
+    NotifSystem.toast('success', 'Nube Actualizada', 'Todos los datos se sincronizaron con Firebase.');
+    App.renderSection('admin-config');
+  } else {
+    NotifSystem.toast('error', 'Error', window.FirebaseSync.lastErrorMsg || 'Revisa las reglas de seguridad en Firebase.');
+  }
+}
+window.testFirebaseConnectionFromUI = testFirebaseConnectionFromUI;
 
 function saveFirebaseConfigFromUI(e) {
   e.preventDefault();
