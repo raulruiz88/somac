@@ -136,49 +136,43 @@ window.onMonthCheckboxChange = onMonthCheckboxChange;
 
 // ---- SVG Line Chart Helper ----------------------------------
 function renderSVGLineChart(options) {
-  const { title, sub, dataPoints, color = '#3b82f6', height = 190, unit = 'm', annualAvg = null } = options;
+  const { title, sub, dataPoints, color = '#3b82f6', height = 200, unit = 'm', annualAvg = null } = options;
   if (!dataPoints || dataPoints.length === 0) return '';
 
-  const padding = 38;
-  const width = 520;
-  const chartW = width - padding * 2;
-  const chartH = height - padding * 2;
+  const padding = { top: 36, bottom: 36, left: 10, right: 10 };
+  const svgW = 520;
+  const svgH = height;
+  const chartW = svgW - padding.left - padding.right;
+  const chartH = svgH - padding.top - padding.bottom;
 
-  const values = dataPoints.map(d => d.value);
-  if (annualAvg !== null && annualAvg > 0) values.push(annualAvg);
-
-  const maxVal = Math.max(...values, 1);
-  const minVal = Math.min(...values, 0);
+  const rawValues = dataPoints.map(d => d.value);
+  const allValues = annualAvg !== null ? [...rawValues, annualAvg] : rawValues;
+  const maxVal = Math.max(...allValues, 1);
+  const minVal = Math.min(...allValues, 0);
   const range  = Math.max(maxVal - minVal, 1);
 
-  const points = dataPoints.map((d, i) => {
-    const x = padding + (i / Math.max(dataPoints.length - 1, 1)) * chartW;
-    const y = height - padding - ((d.value - minVal) / range) * chartH;
-    return { x, y, label: d.label, value: d.value };
-  });
+  const toX = i  => padding.left + (i / Math.max(dataPoints.length - 1, 1)) * chartW;
+  const toY = v  => padding.top  + chartH - ((v - minVal) / range) * chartH;
 
+  const points = dataPoints.map((d, i) => ({ x: toX(i), y: toY(d.value), label: d.label, value: d.value }));
   const polylineStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const areaPath = `M ${points[0].x},${height - padding} L ` +
+  const areaPath    = `M ${points[0].x},${toY(minVal)} L ` +
     points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') +
-    ` L ${points[points.length - 1].x},${height - padding} Z`;
+    ` L ${points[points.length - 1].x},${toY(minVal)} Z`;
 
   const gradId = 'grad-' + Math.random().toString(36).substr(2, 9);
-
-  let avgY = null;
-  if (annualAvg !== null && annualAvg >= 0) {
-    avgY = height - padding - ((annualAvg - minVal) / range) * chartH;
-  }
+  const avgY   = annualAvg !== null ? toY(annualAvg) : null;
 
   return `
-  <div class="card chart-line-card" style="padding:20px 22px;background:rgba(22, 28, 40, 0.75);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.14);display:flex;flex-direction:column">
+  <div class="card chart-line-card" style="padding:18px 20px;background:rgba(22,28,40,0.75);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.14);display:flex;flex-direction:column;overflow:hidden">
     <div class="chart-header-row" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-      <div style="font-size:14px;font-weight:800;color:var(--text-primary);flex:1;min-width:180px">${title}</div>
-      ${annualAvg !== null ? `<span style="font-size:11px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.12);padding:3px 10px;border-radius:12px;border:1px solid rgba(245,158,11,0.25);white-space:nowrap">${annualAvg}${unit} prom. anual</span>` : ''}
+      <div style="font-size:13px;font-weight:800;color:var(--text-primary);flex:1;min-width:0;line-height:1.3">${title}</div>
+      ${annualAvg !== null ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.12);padding:2px 8px;border-radius:10px;border:1px solid rgba(245,158,11,0.25);white-space:nowrap;flex-shrink:0">${annualAvg}${unit} prom.</span>` : ''}
     </div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">${sub}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">${sub}</div>
 
-    <div style="position:relative;width:100%;flex:1;min-height:0">
-      <svg viewBox="0 0 ${width} ${height}" style="width:100%;height:100%;min-height:180px;overflow:visible" preserveAspectRatio="none">
+    <div style="position:relative;width:100%;overflow:hidden">
+      <svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="${color}" stop-opacity="0.35"/>
@@ -187,34 +181,32 @@ function renderSVGLineChart(options) {
         </defs>
 
         <!-- Grid Lines -->
-        <line x1="${padding}" y1="${padding}" x2="${width - padding}" y2="${padding}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
-        <line x1="${padding}" y1="${padding + chartH/2}" x2="${width - padding}" y2="${padding + chartH/2}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
-        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(255,255,255,0.1)" />
+        <line x1="${padding.left}" y1="${padding.top}" x2="${svgW - padding.right}" y2="${padding.top}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
+        <line x1="${padding.left}" y1="${padding.top + chartH/2}" x2="${svgW - padding.right}" y2="${padding.top + chartH/2}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" />
+        <line x1="${padding.left}" y1="${toY(minVal)}" x2="${svgW - padding.right}" y2="${toY(minVal)}" stroke="rgba(255,255,255,0.1)" />
 
         <!-- Annual Average Dashed Line -->
-        ${avgY !== null ? `
-          <line x1="${padding}" y1="${avgY.toFixed(1)}" x2="${width - padding}" y2="${avgY.toFixed(1)}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />
-        ` : ''}
+        ${avgY !== null ? `<line x1="${padding.left}" y1="${avgY.toFixed(1)}" x2="${svgW - padding.right}" y2="${avgY.toFixed(1)}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4" opacity="0.85" />` : ''}
 
         <!-- Area Fill -->
         <path d="${areaPath}" fill="url(#${gradId})" />
 
         <!-- Main Trend Line -->
-        <polyline fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineStr}" />
+        <polyline fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${polylineStr}" />
 
         <!-- Data Dots & Labels -->
         ${points.map(p => `
-          <circle cx="${p.x}" cy="${p.y}" r="5" fill="${color}" stroke="#121721" stroke-width="2.5" />
-          <text x="${p.x}" y="${p.y - 12}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">${p.value}${unit}</text>
-          <text x="${p.x}" y="${height - 10}" text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="600">${p.label}</text>
+          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${color}" stroke="#121721" stroke-width="2" />
+          <text x="${p.x.toFixed(1)}" y="${Math.max(padding.top - 6, p.y - 10).toFixed(1)}" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="700">${p.value}${unit}</text>
+          <text x="${p.x.toFixed(1)}" y="${(svgH - 6).toFixed(1)}" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600">${p.label}</text>
         `).join('')}
       </svg>
+    </div>
 
-      <!-- Chart Legend -->
-      <div class="chart-legend">
-        <div class="legend-item"><div class="legend-line solid" style="background:${color}"></div> Periodo Seleccionado</div>
-        ${annualAvg !== null ? `<div class="legend-item"><div class="legend-line dashed"></div> Promedio Anual Acumulado (${annualAvg}${unit})</div>` : ''}
-      </div>
+    <!-- Chart Legend (inside card, below chart) -->
+    <div class="chart-legend" style="margin-top:10px">
+      <div class="legend-item"><div class="legend-line solid" style="background:${color}"></div> Periodo Seleccionado</div>
+      ${annualAvg !== null ? `<div class="legend-item"><div class="legend-line dashed"></div> Promedio Anual Acumulado (${annualAvg}${unit})</div>` : ''}
     </div>
   </div>`;
 }
@@ -1484,28 +1476,35 @@ function renderAdminUsers() {
     admin: 'Administrador'
   };
 
+  const isConnected = window.FirebaseSync && window.FirebaseSync.isConnected();
+
   return `
   <div class="fade-in">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:700">👥 Usuarios &amp; Permisos del Sistema</div>
-      <button class="btn btn-primary" onclick="openUserModal(null)">➕ Agregar Usuario</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:700">👥 Usuarios & Permisos del Sistema</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="syncUsersToCloud(this)" style="font-size:12px">
+          ${isConnected ? '☁️ Sincronizar con Nube' : '☁️ Subir a Firebase'}
+        </button>
+        <button class="btn btn-primary" onclick="openUserModal(null)">➕ Agregar Usuario</button>
+      </div>
     </div>
 
-    <div class="table-container">
-      <table>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%">
+      <table style="min-width:560px">
         <thead>
           <tr>
             <th>Nombre</th>
             <th>Usuario</th>
             <th>Rol</th>
-            <th>Planta Asignada</th>
+            <th>Planta</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           ${users.map(u => {
-            const plantLabel = u.plantId === 'ambas' ? 'Ambas Plantas' : (u.plantId === 'plant-2' ? 'Planta 2' : 'Planta 1');
+            const plantLabel = u.plantId === 'ambas' ? 'Ambas' : (u.plantId === 'plant-2' ? 'Planta 2' : 'Planta 1');
             return `
             <tr style="${!u.active?'opacity:.5':''}">
               <td style="font-weight:700">${u.name}</td>
@@ -1526,6 +1525,24 @@ function renderAdminUsers() {
     </div>
   </div>`;
 }
+
+async function syncUsersToCloud(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+  try {
+    if (window.FirebaseSync) {
+      await window.FirebaseSync.init();
+      const users = DB.Users.getAll();
+      await window.FirebaseSync.saveKey('mtto_users', users);
+      NotifSystem.toast('success', '☁️ Usuarios sincronizados', `${users.length} usuario(s) guardados en Firebase.`);
+    } else {
+      NotifSystem.toast('error', 'Sin conexión', 'Firebase no está configurado.');
+    }
+  } catch (e) {
+    NotifSystem.toast('error', 'Error', 'No se pudo sincronizar. Verifica la conexión a internet.');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar con Nube'; }
+}
+window.syncUsersToCloud = syncUsersToCloud;
 
 function openUserModal(editId) {
   const user = editId ? DB.Users.getById(editId) : null;
